@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-
+//product modal
 const ProductSchema = new mongoose.Schema({
   productId: {
     type: String,

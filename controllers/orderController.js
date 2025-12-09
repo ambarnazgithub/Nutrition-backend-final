@@ -1,6 +1,6 @@
 import Orders from "../models/Orders.js";
 import Product from "../models/Product.js";
-
+//orders controller
 export const createOrder = async (req, res) => {
   try {
     const orderData = req.body;
