@@ -4,7 +4,7 @@ import { verifyAdmin } from "../middleware/auth.js";
 import { v2 as cloudinary } from "cloudinary";
 import multer from "multer";
 import { Readable } from "stream";
-
+//product routes
 const router = express.Router();
 
 // ---------------- CLOUDINARY CONFIG ----------------
