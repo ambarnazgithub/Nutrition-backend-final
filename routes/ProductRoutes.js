@@ -342,6 +342,7 @@ router.post(
         flavor,
         servings,
         description,
+        discountPercent,
         quantity,
       } = req.body;
 
@@ -359,6 +360,7 @@ router.post(
           error: "Price must be a positive number",
         });
       }
+const numDiscount = Number(discountPercent) || 0;
 
       const cleanCategory = category.toLowerCase().trim();
       const validCategories = [
@@ -396,6 +398,7 @@ router.post(
           .substr(2, 9)}`,
         name: name.trim(),
         category: cleanCategory,
+          discountPercent: numDiscount,  
         price: numPrice,
         quantity: Number(quantity) || 0,
         weight: weight?.trim() || "",
@@ -419,6 +422,7 @@ router.post(
     }
   }
 );
+
 
 // ---------------- UPDATE PRODUCT ----------------
 router.put(
