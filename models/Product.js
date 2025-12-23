@@ -5,7 +5,10 @@ const ProductSchema = new mongoose.Schema({
     type: String,
     unique: true,
   },
-
+  brandName: {
+    type: String,
+    required: false,
+  },
   name: {
     type: String,
     required: true,

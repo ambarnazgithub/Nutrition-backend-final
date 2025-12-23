@@ -13,13 +13,19 @@ const orderSchema = new mongoose.Schema({
         ref: "Product",
         required: true,},  
       name: String,
+       brandName: String,
       price: Number,
       count: Number,
       flavor: String,
       servings: String,
     },
   ],
-  totalAmount: Number,
-}, { timestamps: true });
+
+   // ✅ ADD THESE TWO
+    couponCode: { type: String, default: null },
+    discount: { type: Number, default: 0 },
+
+    totalAmount: Number,
+  }, { timestamps: true });
 const Order = mongoose.model('Order', orderSchema);
 export default Order;

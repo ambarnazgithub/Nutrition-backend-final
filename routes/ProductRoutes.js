@@ -335,6 +335,7 @@ router.post(
   async (req, res) => {
     try {
       const {
+        brandName,
         name,
         category,
         price,
@@ -346,10 +347,10 @@ router.post(
         quantity,
       } = req.body;
 
-      if (!name || !category || !price) {
+      if (!brandName || !name || !category || !price) {
         return res.status(400).json({
           success: false,
-          error: "Name, category, and price are required",
+          error: "Brand name, name, category, and price are required",
         });
       }
 
@@ -396,6 +397,7 @@ const numDiscount = Number(discountPercent) || 0;
         productId: `PROD-${Date.now()}-${Math.random()
           .toString(36)
           .substr(2, 9)}`,
+          brandName: brandName.trim(),
         name: name.trim(),
         category: cleanCategory,
           discountPercent: numDiscount,  
@@ -472,7 +474,7 @@ router.put(
       if (updateData.flavor) updateData.flavor = JSON.parse(updateData.flavor);
       if (updateData.servings)
         updateData.servings = JSON.parse(updateData.servings);
-
+if (updateData.brandName) updateData.brandName = updateData.brandName.trim();
      
       if (existingGallery) {
         finalGallery = Array.isArray(existingGallery)

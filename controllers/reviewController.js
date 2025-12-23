@@ -18,7 +18,7 @@ export const addReview = async (req, res) => {
   try {
     const { productId, userId, name, email, message, rating } = req.body;
 
-    if (!productId || !userId || !name || !email || !message || !rating) {
+    if (!productId ||  !name || !email || !message || !rating) {
       return res.status(400).json({
         success: false,
         error: "All fields are required",
@@ -28,7 +28,7 @@ export const addReview = async (req, res) => {
     // Create review
     const newReview = await Review.create({
       productId,
-      userId,
+      userId: userId || null,
       name,
       email,
       message,
