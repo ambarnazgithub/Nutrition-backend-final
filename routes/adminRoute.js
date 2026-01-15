@@ -47,6 +47,7 @@ router.post("/login", async (req, res) => {
       sameSite: isProduction ? "none" : "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000,
       path: "/",
+       domain: ".sharknutritionpk.store",
     });
 
     console.log(" Login successful, cookie set");

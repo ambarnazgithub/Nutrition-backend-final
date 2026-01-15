@@ -25,7 +25,7 @@ const PORT = process.env.PORT || 5000;
 // =============== MIDDLEWARE ===============
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://sharknutritionpk.store"],
+    origin: ["http://localhost:5173", "https://sharknutritionpk.store",  "https://www.sharknutritionpk.store"],
     credentials: true,
   })
 );
