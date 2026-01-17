@@ -27,16 +27,16 @@ const PORT = process.env.PORT || 5000;
 const allowedOrigins = [
   "http://localhost:5173",
   "https://sharknutritionpk.store",
-  "https://www.sharknutritionpk.store",
+  "https://www.sharknutritionpk.store"
 ];
 
 app.use(
   cors({
     origin: function (origin, callback) {
+      // allow requests with no origin like mobile apps or curl
       if (!origin) return callback(null, true);
-
       if (allowedOrigins.includes(origin)) {
-        return callback(null, origin); 
+        return callback(null, true);
       } else {
         return callback(new Error("Not allowed by CORS"));
       }
@@ -44,10 +44,6 @@ app.use(
     credentials: true,
   })
 );
-
-// Preflight support (VERY IMPORTANT)
-app.options("*", cors());
-
 
 app.use(cookieParser());
 app.use(express.json());
