@@ -1,3 +1,4 @@
+
 // server.js
 import dotenv from "dotenv";
 dotenv.config();
@@ -7,7 +8,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import mongoose from "mongoose";
 
-// ================== ROUTES ==================
+// Import routes
 import adminRoutes from "./routes/adminRoute.js";
 import userRoutes from "./routes/userRoute.js";
 import orderRoutes from "./routes/orderRoutes.js";
@@ -17,103 +18,97 @@ import contactRoutes from "./routes/ContactRoute.js";
 import couponRoutes from "./routes/couponRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 
-// ================== APP ==================
+// =============== EXPRESS APP ===============
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ================== CORS ==================
-// Allow frontend www/non-www + Vercel backend URL + Postman/server requests
+// =============== MIDDLEWARE ===============
+// server.js
 const allowedOrigins = [
   "http://localhost:5173",
   "https://sharknutritionpk.store",
-  "https://www.sharknutritionpk.store",
-  "https://nutrition-backend-final.vercel.app",
-  "https://api.sharknutritionpk.store"
+  "https://www.sharknutritionpk.store"
 ];
 
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // allow server-to-server requests, Postman, curl
+    origin: function (origin, callback) {
+      // allow requests with no origin like mobile apps or curl
       if (!origin) return callback(null, true);
-
-      if (allowedOrigins.includes(origin)) return callback(null, true);
-
-      console.log("❌ CORS blocked:", origin);
-      return callback(new Error("Not allowed by CORS"));
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      } else {
+        return callback(new Error("Not allowed by CORS"));
+      }
     },
     credentials: true,
   })
 );
 
-// ================== MIDDLEWARE ==================
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ================== REQUEST LOG ==================
+// Request logging
 app.use((req, res, next) => {
-  console.log(`➡️ ${req.method} ${req.originalUrl}`);
+  console.log(`➡️ ${req.method} ${req.url}`);
   next();
 });
 
-// ================== ROUTES ==================
-
-// Official /api routes
+// =============== ROUTES ===============
 app.use("/api/admin", adminRoutes);
 app.use("/api/users", userRoutes);
+app.use("/users", userRoutes); // optional
 app.use("/api/orders", orderRoutes);
-app.use("/api/export", exportRoutes);
-app.use("/api/products", productRoutes);
+app.use("/export", exportRoutes);
+app.use("/products", productRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/coupons", couponRoutes);
 app.use("/api/reviews", reviewRoutes);
+app.use("/api/products", productRoutes);
 
-// Old frontend aliases (no frontend change needed)
-app.use("/products", productRoutes);
-app.use("/users", userRoutes); // optional
-
-// ================== TEST ROUTE ==================
-app.get("/test", (req, res) => {
-  res.json({
-    success: true,
-    message: "Shark Nutrition API is running 🚀",
-    time: new Date().toISOString(),
-  });
+// Test route
+app.get("/test", async (req, res) => {
+  try {
+    res.json({
+      message: "Server is working!",
+      routes: ["GET /test", "POST /api/orders", "GET /api/orders/test"],
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
 });
 
-// ================== ROOT ==================
+// Root route
 app.get("/", (req, res) => {
-  res.send("Welcome to Shark Nutrition Backend API");
+  res.send("Welcome to Shark Nutrition API");
 });
 
-// ================== 404 HANDLER ==================
+// 404 handler
 app.use((req, res) => {
-  console.log(`❌ 404: ${req.method} ${req.originalUrl}`);
-  res.status(404).json({
-    success: false,
-    message: "Route not found",
-    path: req.originalUrl,
-  });
+  console.log(` 404 - Route not found: ${req.method} ${req.url}`);
+  res.status(404).json({ error: "Route not found", method: req.method, url: req.url });
 });
 
-// ================== START SERVER + MONGO CONNECTION ==================
+// =============== START SERVER + MONGO CONNECTION ===============
 const startServer = async () => {
   try {
+    // Connect to MongoDB
     await mongoose.connect(process.env.MONGO_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
 
     console.log("✅ MongoDB connected");
-    console.log("📦 DB State:", mongoose.connection.readyState); // 1 = connected
+    console.log("MongoDB connection state:", mongoose.connection.readyState); // 1 = connected
 
+    // Start Express server
     app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`🌐 Test URL: http://localhost:${PORT}/test`);
+      console.log(`Server running on http://localhost:${PORT}`);
+      console.log(`Test URL: http://localhost:${PORT}/test`);
     });
-  } catch (error) {
-    console.error("❌ Server start failed:", error.message);
+  } catch (err) {
+    console.error("❌ Failed to start server:", err);
   }
 };
 
