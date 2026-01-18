@@ -1,5 +1,3 @@
-
-// server.js
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -8,7 +6,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import mongoose from "mongoose";
 
-// Import routes
+// ================== ROUTES ==================
 import adminRoutes from "./routes/adminRoute.js";
 import userRoutes from "./routes/userRoute.js";
 import orderRoutes from "./routes/orderRoutes.js";
@@ -18,97 +16,94 @@ import contactRoutes from "./routes/ContactRoute.js";
 import couponRoutes from "./routes/couponRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 
-// =============== EXPRESS APP ===============
+// ================== APP ==================
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// =============== MIDDLEWARE ===============
-// server.js
+// ================== CORS (PRODUCTION SAFE) ==================
 const allowedOrigins = [
   "http://localhost:5173",
   "https://sharknutritionpk.store",
-  "https://www.sharknutritionpk.store"
+  "https://www.sharknutritionpk.store",
+  "https://nutrition-backend-final.vercel.app",
+  "https://api.sharknutritionpk.store", // future-proof
 ];
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-      // allow requests with no origin like mobile apps or curl
+    origin: (origin, callback) => {
+      // allow server-to-server, Postman, curl
       if (!origin) return callback(null, true);
+
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
-      } else {
-        return callback(new Error("Not allowed by CORS"));
       }
+
+      console.log("❌ CORS blocked:", origin);
+      return callback(null, false);
     },
     credentials: true,
   })
 );
 
+// ================== MIDDLEWARE ==================
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Request logging
+// ================== REQUEST LOG ==================
 app.use((req, res, next) => {
-  console.log(`➡️ ${req.method} ${req.url}`);
+  console.log(`➡️ ${req.method} ${req.originalUrl}`);
   next();
 });
 
-// =============== ROUTES ===============
+// ================== ROUTES ==================
 app.use("/api/admin", adminRoutes);
 app.use("/api/users", userRoutes);
-app.use("/users", userRoutes); // optional
 app.use("/api/orders", orderRoutes);
-app.use("/export", exportRoutes);
-app.use("/products", productRoutes);
+app.use("/api/export", exportRoutes);
+app.use("/api/products", productRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/coupons", couponRoutes);
 app.use("/api/reviews", reviewRoutes);
-app.use("/api/products", productRoutes);
 
-// Test route
-app.get("/test", async (req, res) => {
-  try {
-    res.json({
-      message: "Server is working!",
-      routes: ["GET /test", "POST /api/orders", "GET /api/orders/test"],
-    });
-  } catch (err) {
-    res.status(500).json({ message: "Server error", error: err.message });
-  }
+// ================== TEST ==================
+app.get("/test", (req, res) => {
+  res.json({
+    success: true,
+    message: "Shark Nutrition API is running 🚀",
+    time: new Date().toISOString(),
+  });
 });
 
-// Root route
+// ================== ROOT ==================
 app.get("/", (req, res) => {
-  res.send("Welcome to Shark Nutrition API");
+  res.send("Welcome to Shark Nutrition Backend API");
 });
 
-// 404 handler
+// ================== 404 ==================
 app.use((req, res) => {
-  console.log(` 404 - Route not found: ${req.method} ${req.url}`);
-  res.status(404).json({ error: "Route not found", method: req.method, url: req.url });
+  console.log(`❌ 404: ${req.method} ${req.originalUrl}`);
+  res.status(404).json({
+    success: false,
+    message: "Route not found",
+    path: req.originalUrl,
+  });
 });
 
-// =============== START SERVER + MONGO CONNECTION ===============
+// ================== START SERVER ==================
 const startServer = async () => {
   try {
-    // Connect to MongoDB
-    await mongoose.connect(process.env.MONGO_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    await mongoose.connect(process.env.MONGO_URI);
 
     console.log("✅ MongoDB connected");
-    console.log("MongoDB connection state:", mongoose.connection.readyState); // 1 = connected
+    console.log("📦 DB State:", mongoose.connection.readyState); // 1 = connected
 
-    // Start Express server
     app.listen(PORT, () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-      console.log(`Test URL: http://localhost:${PORT}/test`);
+      console.log(`🚀 Server running on port ${PORT}`);
     });
-  } catch (err) {
-    console.error("❌ Failed to start server:", err);
+  } catch (error) {
+    console.error("❌ Server start failed:", error.message);
   }
 };
 
