@@ -7,14 +7,16 @@ import cookieParser from "cookie-parser";
 import mongoose from "mongoose";
 
 // ================== ROUTES ==================
-import adminRoutes from "./routes/adminRoute.js";
-import userRoutes from "./routes/userRoute.js";
-import orderRoutes from "./routes/orderRoutes.js";
-import exportRoutes from "./routes/exportRoutes.js";
-import productRoutes from "./routes/ProductRoutes.js";
-import contactRoutes from "./routes/ContactRoute.js";
-import couponRoutes from "./routes/couponRoutes.js";
-import reviewRoutes from "./routes/reviewRoutes.js";
+app.use("/api/admin", adminRoutes);
+app.use("/api/users", userRoutes);
+app.use("/users", userRoutes); // optional
+app.use("/api/orders", orderRoutes);
+app.use("/export", exportRoutes);
+app.use("/products", productRoutes);
+app.use("/api/contact", contactRoutes);
+app.use("/api/coupons", couponRoutes);
+app.use("/api/reviews", reviewRoutes);
+app.use("/api/products", productRoutes);
 
 // ================== APP ==================
 const app = express();
