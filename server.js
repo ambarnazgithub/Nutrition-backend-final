@@ -26,6 +26,7 @@ const PORT = process.env.PORT || 5000;
 // server.js
 const allowedOrigins = [
   "http://localhost:5173",
+  "http://localhost:5174",
   "https://sharknutritionpk.store",
   "https://www.sharknutritionpk.store"
 ];
@@ -56,6 +57,11 @@ app.use((req, res, next) => {
 });
 
 // =============== ROUTES ===============
+import categoryRoutes from "./routes/categoryRoutes.js";
+
+app.use("/api/categories", categoryRoutes);
+
+
 app.use("/api/admin", adminRoutes);
 app.use("/api/users", userRoutes);
 app.use("/users", userRoutes); // optional
@@ -66,7 +72,7 @@ app.use("/api/contact", contactRoutes);
 app.use("/api/coupons", couponRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/products", productRoutes);
-
+app.use("/uploads", express.static("uploads"));
 // Test route
 app.get("/test", async (req, res) => {
   try {

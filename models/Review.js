@@ -37,6 +37,11 @@ const ReviewSchema = new mongoose.Schema({
     required: true
   },
 
+    // ✅ ADD THIS
+  image: {
+    type: String,
+    default: null
+  },
   createdAt: {
     type: Date,
     default: Date.now

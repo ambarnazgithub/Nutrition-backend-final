@@ -2,6 +2,7 @@
 import Review from "../models/Review.js";
 import Product from "../models/Product.js";
 
+// ---------------- GET ALL REVIEWS ----------------
 export const getAllReviews = async (req, res) => {
   try {
     const reviews = await Review.find()
@@ -13,19 +14,17 @@ export const getAllReviews = async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 };
-// ---------------- ADD REVIEW ----------------
+
+// ---------------- ADD REVIEW (with image) ----------------
 export const addReview = async (req, res) => {
   try {
     const { productId, userId, name, email, message, rating } = req.body;
 
-    if (!productId ||  !name || !email || !message || !rating) {
-      return res.status(400).json({
-        success: false,
-        error: "All fields are required",
-      });
+    if (!productId || !name || !email || !message || !rating) {
+      return res.status(400).json({ success: false, error: "All fields are required" });
     }
 
-    // Create review
+    // Create review with optional image
     const newReview = await Review.create({
       productId,
       userId: userId || null,
@@ -33,21 +32,18 @@ export const addReview = async (req, res) => {
       email,
       message,
       rating,
+      image: req.file ? `/uploads/reviews/${req.file.filename}` : null, // <-- IMAGE PATH
     });
 
-    // Update product rating + reviewCount
+    // Update product rating + total reviews
     const reviews = await Review.find({ productId });
+    const averageRating = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
 
-    const averageRating =
-      reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
-
-    await Product.findByIdAndUpdate(productId, {
-      ratings: {
-        averageRating: averageRating,
-        totalRatings: reviews.length,
-      },
-    });
-    const updatedProduct = await Product.findById(productId);
+    const updatedProduct = await Product.findByIdAndUpdate(
+      productId,
+      { ratings: { averageRating, totalRatings: reviews.length } },
+      { new: true }
+    );
 
     res.status(201).json({
       success: true,
@@ -63,11 +59,9 @@ export const addReview = async (req, res) => {
 // ---------------- GET REVIEWS (BY PRODUCT) ----------------
 export const getReviews = async (req, res) => {
   try {
-    const reviews = await Review.find({ productId: req.params.productId }).sort(
-      {
-        createdAt: -1,
-      }
-    );
+    const reviews = await Review.find({ productId: req.params.productId }).sort({
+      createdAt: -1,
+    });
 
     res.json({ success: true, reviews });
   } catch (err) {

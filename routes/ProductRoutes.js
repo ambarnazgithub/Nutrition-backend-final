@@ -363,23 +363,14 @@ router.post(
       }
 const numDiscount = Number(discountPercent) || 0;
 
-      const cleanCategory = category.toLowerCase().trim();
-      const validCategories = [
-        "protein",
-        "creatine",
-        "preworkout",
-        "weightgainer",
-        "vitamins and minerals",
-        "amino acid",
-      ];
-      if (!validCategories.includes(cleanCategory)) {
-        return res.status(400).json({
-          success: false,
-          error: `Invalid category. Must be one of: ${validCategories.join(
-            ", "
-          )}`,
-        });
-      }
+   const cleanCategory = category.toLowerCase().trim();
+
+if (!cleanCategory) {
+  return res.status(400).json({
+    success: false,
+    error: "Category is required",
+  });
+}
 
       // Upload multiple images to Cloudinary
       let galleryUrls = [];
