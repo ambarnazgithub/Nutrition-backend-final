@@ -15,46 +15,6 @@ export const getAllReviews = async (req, res) => {
   }
 };
 
-// ---------------- ADD REVIEW (with image) ----------------
-export const addReview = async (req, res) => {
-  try {
-    const { productId, userId, name, email, message, rating } = req.body;
-
-    if (!productId || !name || !email || !message || !rating) {
-      return res.status(400).json({ success: false, error: "All fields are required" });
-    }
-
-    // Create review with optional image
-    const newReview = await Review.create({
-      productId,
-      userId: userId || null,
-      name,
-      email,
-      message,
-      rating,
-      image: req.file ? `/uploads/reviews/${req.file.filename}` : null, // <-- IMAGE PATH
-    });
-
-    // Update product rating + total reviews
-    const reviews = await Review.find({ productId });
-    const averageRating = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
-
-    const updatedProduct = await Product.findByIdAndUpdate(
-      productId,
-      { ratings: { averageRating, totalRatings: reviews.length } },
-      { new: true }
-    );
-
-    res.status(201).json({
-      success: true,
-      message: "Review added successfully",
-      review: newReview,
-      updatedProduct,
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-};
 
 // ---------------- GET REVIEWS (BY PRODUCT) ----------------
 export const getReviews = async (req, res) => {
