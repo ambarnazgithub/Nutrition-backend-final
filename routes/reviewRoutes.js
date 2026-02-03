@@ -1,10 +1,12 @@
 import express from "express";
 
 
-import { addReview, getReviews, deleteReview, getAllReviews } from "../controllers/reviewController.js";
+import {  getReviews, deleteReview, getAllReviews } from "../controllers/reviewController.js";
 import { verifyAdmin } from "../middleware/auth.js";
 import multer from "multer";
 const router = express.Router();
+import Review from "../models/Review.js";
+import Product from "../models/Product.js";
 import { v2 as cloudinary } from "cloudinary";
 
 cloudinary.config({

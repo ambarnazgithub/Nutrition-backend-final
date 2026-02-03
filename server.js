@@ -23,6 +23,8 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // =============== MIDDLEWARE ===============
+// CORS
+
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
@@ -30,28 +32,18 @@ const allowedOrigins = [
   "https://www.sharknutritionpk.store"
 ];
 
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      // Allow requests with no origin (mobile apps, Postman)
-      if (!origin) return callback(null, true);
-      
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        console.log(`🚫 Blocked origin: ${origin}`);
-        callback(new Error('Not allowed by CORS')); // ✅ SECURE - Block unauthorized origins
-      }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
-    exposedHeaders: ['Set-Cookie']
-  })
-);
-
-// ADD THIS RIGHT AFTER CORS:
-app.options('*', cors()); // Handle preflight requests
+app.use(cors({
+  origin: function(origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(null, false);
+  },
+  credentials: true,
+  methods: ['GET','POST','PUT','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization','Cookie']
+}));
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -95,13 +87,6 @@ app.get("/test", async (req, res) => {
 app.get("/", (req, res) => {
   res.send("Welcome to Shark Nutrition API");
 });
-
-
-// 404 handler
-app.use((req, res) => {
-  console.log(` 404 - Route not found: ${req.method} ${req.url}`);
-  res.status(404).json({ error: "Route not found", method: req.method, url: req.url });
-});
 // ADD this BEFORE the 404 handler:
 app.use((err, req, res, next) => {
   console.error('❌ Global Error Handler:', err.stack);
@@ -111,6 +96,13 @@ app.use((err, req, res, next) => {
     stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
   });
 });
+
+// 404 handler
+app.use((req, res) => {
+  console.log(` 404 - Route not found: ${req.method} ${req.url}`);
+  res.status(404).json({ error: "Route not found", method: req.method, url: req.url });
+});
+
 
 // =============== START SERVER + MONGO CONNECTION ===============
 

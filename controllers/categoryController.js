@@ -121,18 +121,7 @@ export const createCategory = async (req, res) => {
 /* =========================
    GET ALL CATEGORIES
 ========================= */
-export const getAllCategories = async (req, res) => {
-  try {
-    const categories = await Category.find().sort({ createdAt: -1 });
 
-    res.status(200).json({
-      success: true,
-      categories
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
 
 /* =========================
    UPDATE CATEGORY
@@ -189,16 +178,54 @@ export const deleteCategory = async (req, res) => {
 /* =========================
    SLIDER CATEGORIES
 ========================= */
+// REPLACE getSliderCategories function:
+
 export const getSliderCategories = async (req, res) => {
   try {
+    console.log("🎯 getSliderCategories called");
+    
     const categories = await Category.find({ isFeatured: true })
-      .sort({ sliderOrder: 1 });
+      .sort({ sliderOrder: 1 })
+      .lean(); // ADD .lean() for better performance
+
+    console.log(`✅ Found ${categories.length} slider categories`);
 
     res.status(200).json({
       success: true,
       categories
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error("❌ getSliderCategories error:", error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+};
+
+// REPLACE getAllCategories function:
+
+export const getAllCategories = async (req, res) => {
+  try {
+    console.log("📂 getAllCategories called");
+    
+    const categories = await Category.find()
+      .sort({ createdAt: -1 })
+      .lean();
+
+    console.log(`✅ Found ${categories.length} categories`);
+
+    res.status(200).json({
+      success: true,
+      categories
+    });
+  } catch (error) {
+    console.error("❌ getAllCategories error:", error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 };
