@@ -15,16 +15,22 @@ cloudinary.config({
 
 // Upload buffer to Cloudinary
 const uploadToCloudinary = async (buffer, mimetype) => {
-  const base64 = buffer.toString("base64");
-  const dataUri = `data:${mimetype};base64,${base64}`;
+  try {
+    const base64 = buffer.toString("base64");
+    const dataUri = `data:${mimetype};base64,${base64}`;
 
-  const result = await cloudinary.uploader.upload(dataUri, {
-    folder: "reviews",
-    upload_preset: "ml_default", // if you use unsigned preset
-  });
+    const result = await cloudinary.uploader.upload(dataUri, {
+      folder: "reviews",
+      upload_preset: "ml_default",
+    });
 
-  return result.secure_url;
+    return result.secure_url;
+  } catch (err) {
+    console.error("Cloudinary upload failed:", err.message);
+    throw new Error("Image upload failed. Check Cloudinary config");
+  }
 };
+
 
 
 // Multer memory storage for Cloudinary
