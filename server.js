@@ -28,23 +28,30 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
   "https://sharknutritionpk.store",
-  "https://www.sharknutritionpk.store"
+  "https://www.sharknutritionpk.store",
 ];
 
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      // allow requests with no origin like mobile apps or curl
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      } else {
-        return callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true,
-  })
-);
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); 
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+ 
+    return callback(null, false);
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+
+app.use(cors(corsOptions));
+
+
+app.options("*", cors(corsOptions));
+
 
 app.use(cookieParser());
 app.use(express.json());
