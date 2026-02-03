@@ -136,3 +136,5 @@ const startServer = async () => {
     process.exit(1); // Exit if can't connect
   }
 };
+// Start the server
+startServer();
