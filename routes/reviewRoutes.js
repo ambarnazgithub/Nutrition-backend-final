@@ -15,7 +15,6 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Upload buffer to Cloudinary
 const uploadToCloudinary = async (buffer, mimetype) => {
   try {
     const base64 = buffer.toString("base64");
@@ -23,15 +22,17 @@ const uploadToCloudinary = async (buffer, mimetype) => {
 
     const result = await cloudinary.uploader.upload(dataUri, {
       folder: "reviews",
-      upload_preset: "ml_default",
+      // remove upload_preset or use your actual preset
+      // upload_preset: "your_existing_preset",
     });
 
     return result.secure_url;
   } catch (err) {
     console.error("Cloudinary upload failed:", err.message);
-    throw new Error("Image upload failed. Check Cloudinary config");
+    throw new Error("Image upload failed. Check Cloudinary keys and preset");
   }
 };
+
 
 
 
