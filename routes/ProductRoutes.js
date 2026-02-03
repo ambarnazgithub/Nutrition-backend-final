@@ -267,16 +267,18 @@ router.get("/stats/count", async (req, res) => {
 });
 
 // ---------------- GET ALL PRODUCTS ----------------
+
 router.get("/getAllProducts", async (req, res) => {
   try {
+    console.log(" getAllProducts called");
     const products = await Product.find({}).sort({ createdAt: -1 }).lean();
+    console.log(` Found ${products.length} products`);
     res.json({ success: true, products });
   } catch (err) {
-    console.error("Error retrieving all products:", err);
+    console.error("❌ Error retrieving all products:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
-
 // ---------------- FILTERED GET ----------------
 router.get("/", async (req, res) => {
   try {

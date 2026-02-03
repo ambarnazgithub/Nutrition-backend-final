@@ -23,7 +23,6 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // =============== MIDDLEWARE ===============
-// server.js
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
@@ -34,18 +33,25 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: function (origin, callback) {
-      // allow requests with no origin like mobile apps or curl
+      // Allow requests with no origin (mobile apps, Postman)
       if (!origin) return callback(null, true);
+      
       if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
+        callback(null, true);
       } else {
-        return callback(new Error("Not allowed by CORS"));
+        console.log(`🚫 Blocked origin: ${origin}`);
+        callback(new Error('Not allowed by CORS')); // ✅ SECURE - Block unauthorized origins
       }
     },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+    exposedHeaders: ['Set-Cookie']
   })
 );
 
+// ADD THIS RIGHT AFTER CORS:
+app.options('*', cors()); // Handle preflight requests
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -90,32 +96,51 @@ app.get("/", (req, res) => {
   res.send("Welcome to Shark Nutrition API");
 });
 
+
 // 404 handler
 app.use((req, res) => {
   console.log(` 404 - Route not found: ${req.method} ${req.url}`);
   res.status(404).json({ error: "Route not found", method: req.method, url: req.url });
 });
+// ADD this BEFORE the 404 handler:
+app.use((err, req, res, next) => {
+  console.error('❌ Global Error Handler:', err.stack);
+  res.status(500).json({ 
+    success: false, 
+    error: err.message,
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+  });
+});
 
 // =============== START SERVER + MONGO CONNECTION ===============
+
+mongoose.connection.on('error', (err) => {
+  console.error('❌ MongoDB connection error:', err);
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.log('⚠️ MongoDB disconnected');
+});
+
+// UPDATE startServer() function:
 const startServer = async () => {
   try {
-    // Connect to MongoDB
+    // Connect to MongoDB with better error handling
     await mongoose.connect(process.env.MONGO_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 5000, // Timeout after 5s
+      socketTimeoutMS: 45000, // Close sockets after 45s
     });
 
     console.log("✅ MongoDB connected");
-    console.log("MongoDB connection state:", mongoose.connection.readyState); // 1 = connected
+    console.log("📊 MongoDB state:", mongoose.connection.readyState);
 
-    // Start Express server
     app.listen(PORT, () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-      console.log(`Test URL: http://localhost:${PORT}/test`);
+      console.log(`🚀 Server running on port ${PORT}`);
     });
   } catch (err) {
-    console.error("❌ Failed to start server:", err);
+    console.error("❌ Failed to start server:", err.message);
+    process.exit(1); // Exit if can't connect
   }
 };
-
-startServer();
