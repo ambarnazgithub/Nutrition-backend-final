@@ -176,6 +176,25 @@ router.post("/", upload.single("image"), async (req, res) => {
   }
 });
 
+// GET ALL REVIEWS (ADMIN)
+router.get("/all", verifyAdmin, async (req, res) => {
+  try {
+    const reviews = await Review.find()
+      .populate("productId", "name")
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      reviews,
+    });
+  } catch (err) {
+    console.error("Error fetching all reviews:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch reviews",
+    });
+  }
+});
 
 
 // GET reviews for a product
