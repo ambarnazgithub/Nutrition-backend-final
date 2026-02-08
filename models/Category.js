@@ -13,6 +13,10 @@ const categorySchema = new mongoose.Schema(
       type: String,
       required: true
     },
+    imageId: {
+      type: String,
+      default: null
+    },
 
     isFeatured: {
       type: Boolean,

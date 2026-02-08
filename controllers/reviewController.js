@@ -1,6 +1,15 @@
 // controllers/reviewController.js
+
+
 import Review from "../models/Review.js";
 import Product from "../models/Product.js";
+import ImageKit from "imagekit";
+
+const imagekit = new ImageKit({
+  publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
+  privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
+  urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT,
+});
 
 // ---------------- GET ALL REVIEWS ----------------
 export const getAllReviews = async (req, res) => {
@@ -32,16 +41,27 @@ export const getReviews = async (req, res) => {
 // ---------------- DELETE REVIEW (ADMIN) ----------------
 export const deleteReview = async (req, res) => {
   try {
-    const removed = await Review.findByIdAndDelete(req.params.id);
+    const review = await Review.findById(req.params.id);
 
-    if (!removed) {
+    if (!review) {
       return res.status(404).json({
         success: false,
         error: "Review not found",
       });
     }
 
-    const reviews = await Review.find({ productId: removed.productId });
+    // Delete image from ImageKit if exists
+    if (review.imageId) {
+      try {
+        await imagekit.deleteFile(review.imageId);
+      } catch (err) {
+        console.error("Error deleting review image from ImageKit:", err);
+      }
+    }
+
+    await Review.findByIdAndDelete(req.params.id);
+
+    const reviews = await Review.find({ productId: review.productId });
 
     const averageRating =
       reviews.length > 0
@@ -49,7 +69,7 @@ export const deleteReview = async (req, res) => {
         : 0;
 
     const updatedProduct = await Product.findByIdAndUpdate(
-      removed.productId,
+      review.productId,
       {
         ratings: {
           averageRating: averageRating,

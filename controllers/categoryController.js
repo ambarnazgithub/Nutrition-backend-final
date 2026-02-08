@@ -1,89 +1,30 @@
+//categoryController.js
+
 import Category from "../models/Category.js";
-import { v2 as cloudinary } from "cloudinary";
+import ImageKit from "imagekit";
 
-const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME?.trim();
-const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY?.trim();
-const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET?.trim();
-
-// Cloudinary Config
-cloudinary.config({
-  cloud_name: CLOUDINARY_CLOUD_NAME,
-  api_key: CLOUDINARY_API_KEY,
-  api_secret: CLOUDINARY_API_SECRET,
+const imagekit = new ImageKit({
+  publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
+  privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
+  urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT,
 });
 
-// Helper function to upload to Cloudinary using DIRECT HTTP request
-// This completely bypasses SDK signature generation
-const uploadToCloudinary = async (buffer, mimetype) => {
+// Helper function to upload to ImageKit
+const uploadToImageKit = async (buffer, originalname) => {
   try {
-    console.log(" Uploading via direct HTTP request with unsigned preset...");
-
-    // Convert buffer to base64
-    const base64 = buffer.toString("base64");
-    const dataUri = `data:${mimetype};base64,${base64}`;
-
-    // Create FormData for direct HTTP upload
-    const formData = new URLSearchParams();
-    formData.append("file", dataUri);
-    formData.append("upload_preset", "ml_default"); // Your unsigned preset
-    formData.append("folder", "categories"); // Add folder directly
-
-    // Direct HTTP POST to Cloudinary upload endpoint
-    const uploadUrl = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
-
-    const response = await fetch(uploadUrl, {
-      method: "POST",
-      body: formData,
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
+    const result = await imagekit.upload({
+      file: buffer,
+      fileName: originalname,
+      folder: "/categories",
     });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(
-        errorData.error?.message || `Upload failed: ${response.statusText}`
-      );
-    }
-
-    const result = await response.json();
-    console.log("Upload successful via direct HTTP!");
-
     return {
-      secure_url: result.secure_url,
-      public_id: result.public_id,
+      secure_url: result.url,
+      public_id: result.fileId,
       ...result,
     };
   } catch (error) {
-    console.error(" Direct HTTP upload failed:", error.message);
-
-    // Fallback: Try with SDK but without API secret
-    console.log(" Fallback: Trying SDK without API secret...");
-    try {
-      // Save and temporarily remove API secret
-      const originalConfig = cloudinary.config();
-      cloudinary.config({
-        cloud_name: CLOUDINARY_CLOUD_NAME,
-        api_key: CLOUDINARY_API_KEY,
-        // NO api_secret
-      });
-
-      const base64 = buffer.toString("base64");
-      const dataUri = `data:${mimetype};base64,${base64}`;
-
-      const result = await cloudinary.uploader.upload(dataUri, {
-        upload_preset: "ml_default",
-        folder: "categories",
-      });
-
-      // Restore config
-      cloudinary.config(originalConfig);
-
-      return result;
-    } catch (fallbackError) {
-      console.error(" Fallback also failed:", fallbackError.message);
-      throw fallbackError;
-    }
+    console.error("ImageKit upload failed:", error.message);
+    throw error;
   }
 };
 
@@ -94,16 +35,19 @@ export const createCategory = async (req, res) => {
   try {
     const { name, sliderOrder } = req.body;
     let image = req.body.image;
+    let imageId = null;
     const isFeatured = req.body.isFeatured === 'true' || req.body.isFeatured === true;
 
     if (req.file) {
-      const uploadResult = await uploadToCloudinary(req.file.buffer, req.file.mimetype);
+      const uploadResult = await uploadToImageKit(req.file.buffer, req.file.originalname);
       image = uploadResult.secure_url;
+      imageId = uploadResult.public_id;
     }
 
     const category = await Category.create({
       name,
       image: image || "",
+      imageId: imageId,
       isFeatured,
       sliderOrder: isFeatured ? sliderOrder : null
     });
@@ -141,22 +85,42 @@ export const updateCategory = async (req, res) => {
   try {
     const { name, sliderOrder } = req.body;
     let image = req.body.image;
+    let imageId = null;
     const isFeatured = req.body.isFeatured === 'true' || req.body.isFeatured === true;
 
-    // Handle File Upload
-    if (req.file) {
-      const uploadResult = await uploadToCloudinary(req.file.buffer, req.file.mimetype);
-      image = uploadResult.secure_url;
+    // 1. Find existing category first
+    const categoryToUpdate = await Category.findById(req.params.id);
+    if (!categoryToUpdate) {
+      return res.status(404).json({ success: false, message: "Category not found" });
     }
+
+    // 2. Handle File Upload (Delete old image if exists)
+    if (req.file) {
+      if (categoryToUpdate.imageId) {
+        try {
+          await imagekit.deleteFile(categoryToUpdate.imageId);
+          console.log("Old category image deleted from ImageKit");
+        } catch (err) {
+          console.error("Error deleting old image:", err);
+        }
+      }
+
+      const uploadResult = await uploadToImageKit(req.file.buffer, req.file.originalname);
+      image = uploadResult.secure_url;
+      imageId = uploadResult.public_id;
+    }
+
+    const updateData = {
+      name,
+      isFeatured,
+      sliderOrder: isFeatured ? sliderOrder : null
+    };
+    if (image) updateData.image = image;
+    if (imageId) updateData.imageId = imageId;
 
     const category = await Category.findByIdAndUpdate(
       req.params.id,
-      {
-        name,
-        ...(image && { image }), // Only update image if new one exists
-        isFeatured,
-        sliderOrder: isFeatured ? sliderOrder : null
-      },
+      updateData,
       { new: true }
     );
 
@@ -175,6 +139,21 @@ export const updateCategory = async (req, res) => {
 ========================= */
 export const deleteCategory = async (req, res) => {
   try {
+    const category = await Category.findById(req.params.id);
+    if (!category) {
+      return res.status(404).json({ success: false, message: "Category not found" });
+    }
+
+    // Delete image from ImageKit
+    if (category.imageId) {
+      try {
+        await imagekit.deleteFile(category.imageId);
+        console.log("Category image deleted from ImageKit");
+      } catch (err) {
+        console.error("Error deleting image from ImageKit:", err);
+      }
+    }
+
     await Category.findByIdAndDelete(req.params.id);
 
     res.status(200).json({

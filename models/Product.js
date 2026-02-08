@@ -45,7 +45,16 @@ const ProductSchema = new mongoose.Schema({
     default: "/images/placeholder.png",
   },
 
+  imageId: {
+    type: String,
+    default: null,
+  },
+
   gallery: {
+    type: [String],
+    default: [],
+  },
+  galleryIds: {
     type: [String],
     default: [],
   },

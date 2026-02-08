@@ -117,10 +117,17 @@ mongoose.connection.on('disconnected', () => {
 // UPDATE startServer() function:
 const startServer = async () => {
   try {
+    if (!process.env.MONGO_URI) {
+      throw new Error("MONGO_URI is not defined in .env file");
+    }
+
+    // Debug: Log the connection string (masking the password for security)
+    const uri = process.env.MONGO_URI;
+    const maskedURI = uri.replace(/:([^:@]+)@/, ":****@");
+    console.log(`🔌 Connecting to MongoDB: ${maskedURI}`);
+
     // Connect to MongoDB with better error handling
     await mongoose.connect(process.env.MONGO_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
       serverSelectionTimeoutMS: 5000, // Timeout after 5s
       socketTimeoutMS: 45000, // Close sockets after 45s
     });

@@ -1,44 +1,20 @@
+//productRoutes.js
+
 import express from "express";
 import Product from "../models/Product.js";
 import { verifyAdmin } from "../middleware/auth.js";
-import { v2 as cloudinary } from "cloudinary";
 import multer from "multer";
 import { Readable } from "stream";
+import ImageKit from "imagekit";
 
 const router = express.Router();
 
-// ---------------- CLOUDINARY CONFIG ----------------
-
-const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME?.trim();
-const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY?.trim();
-const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET?.trim();
-
-// Verify all Cloudinary credentials are present
-if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) {
-  console.error("Missing Cloudinary credentials!");
-  console.error({
-    cloud_name: !!CLOUDINARY_CLOUD_NAME,
-    api_key: !!CLOUDINARY_API_KEY,
-    api_secret: !!CLOUDINARY_API_SECRET,
-  });
-} else {
-  cloudinary.config({
-    cloud_name: CLOUDINARY_CLOUD_NAME,
-    api_key: CLOUDINARY_API_KEY,
-    api_secret: CLOUDINARY_API_SECRET,
-    signature_algorithm: "sha256",
-  });
-  console.log(" Cloudinary configured successfully");
-  console.log(" Cloudinary config check:", {
-    cloud_name: CLOUDINARY_CLOUD_NAME,
-    api_key: CLOUDINARY_API_KEY
-      ? `${CLOUDINARY_API_KEY.substring(0, 4)}...`
-      : "missing",
-    api_secret: CLOUDINARY_API_SECRET
-      ? `${CLOUDINARY_API_SECRET.substring(0, 4)}...`
-      : "missing",
-  });
-}
+// ---------------- IMAGEKIT CONFIG ----------------
+const imagekit = new ImageKit({
+  publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
+  privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
+  urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT,
+});
 
 // ---------------- MULTER MEMORY STORAGE ----------------
 const storage = multer.memoryStorage();
@@ -47,7 +23,7 @@ const storage = multer.memoryStorage();
 const upload = multer({
   storage,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB max
+    fileSize: 3 * 1024 * 1024, // 3MB max
   },
   fileFilter: (req, file, cb) => {
     console.log("File filter:", file.mimetype);
@@ -59,92 +35,22 @@ const upload = multer({
   },
 });
 
-// Helper function to upload to Cloudinary using DIRECT HTTP request
-// This completely bypasses SDK signature generation
-const uploadToCloudinary = async (buffer, mimetype) => {
+// Helper function to upload to ImageKit
+const uploadToImageKit = async (buffer, originalname) => {
   try {
-    console.log(" Uploading via direct HTTP request with unsigned preset...");
-
-    // Convert buffer to base64
-    const base64 = buffer.toString("base64");
-    const dataUri = `data:${mimetype};base64,${base64}`;
-
-    // Create FormData for direct HTTP upload
-    const formData = new URLSearchParams();
-    formData.append("file", dataUri);
-    formData.append("upload_preset", "ml_default"); // Your unsigned preset
-    formData.append("folder", "products"); // Add folder directly
-
-    // Direct HTTP POST to Cloudinary upload endpoint
-    const uploadUrl = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
-
-    const response = await fetch(uploadUrl, {
-      method: "POST",
-      body: formData,
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
+    const result = await imagekit.upload({
+      file: buffer,
+      fileName: originalname,
+      folder: "/products",
     });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(
-        errorData.error?.message || `Upload failed: ${response.statusText}`
-      );
-    }
-
-    const result = await response.json();
-    console.log("Upload successful via direct HTTP!");
-
     return {
-      secure_url: result.secure_url,
-      public_id: result.public_id,
+      secure_url: result.url,
+      public_id: result.fileId,
       ...result,
     };
   } catch (error) {
-    console.error(" Direct HTTP upload failed:", error.message);
-
-    // Fallback: Try with SDK but without API secret
-    console.log(" Fallback: Trying SDK without API secret...");
-    try {
-      // Save and temporarily remove API secret
-      const originalConfig = cloudinary.config();
-      cloudinary.config({
-        cloud_name: CLOUDINARY_CLOUD_NAME,
-        api_key: CLOUDINARY_API_KEY,
-        // NO api_secret
-      });
-
-      const base64 = buffer.toString("base64");
-      const dataUri = `data:${mimetype};base64,${base64}`;
-
-      const result = await cloudinary.uploader.upload(dataUri, {
-        upload_preset: "ml_default",
-      });
-
-      // Restore config
-      cloudinary.config(originalConfig);
-
-      // Move to products folder
-      if (result.public_id && !result.public_id.includes("products/")) {
-        try {
-          const newPublicId = `products/${result.public_id}`;
-          await cloudinary.uploader.rename(result.public_id, newPublicId);
-          result.secure_url = result.secure_url.replace(
-            result.public_id,
-            newPublicId
-          );
-          result.public_id = newPublicId;
-        } catch (renameErr) {
-          console.log(" Upload succeeded but couldn't move to folder");
-        }
-      }
-
-      return result;
-    } catch (fallbackError) {
-      console.error(" Fallback also failed:", fallbackError.message);
-      throw fallbackError;
-    }
+    console.error("ImageKit upload failed:", error.message);
+    throw error;
   }
 };
 
@@ -156,7 +62,7 @@ const handleMulterError = (err, req, res, next) => {
     if (err.code === "LIMIT_FILE_SIZE") {
       return res.status(400).json({
         success: false,
-        error: "File too large. Maximum size is 5MB",
+        error: "File too large. Maximum size is 2MB",
       });
     }
     return res.status(400).json({
@@ -166,67 +72,6 @@ const handleMulterError = (err, req, res, next) => {
   }
   next(err);
 };
-// Test Cloudinary connection and verify API secret
-router.get("/cloudinary-test", async (req, res) => {
-  try {
-    // Check if credentials are loaded
-    const hasCredentials = !!(
-      CLOUDINARY_CLOUD_NAME &&
-      CLOUDINARY_API_KEY &&
-      CLOUDINARY_API_SECRET
-    );
-
-    if (!hasCredentials) {
-      return res.json({
-        success: false,
-        error: "Missing Cloudinary credentials",
-        check: {
-          cloud_name: !!CLOUDINARY_CLOUD_NAME,
-          api_key: !!CLOUDINARY_API_KEY,
-          api_secret: !!CLOUDINARY_API_SECRET,
-        },
-      });
-    }
-
-    // Test signature generation
-    const testParams = {
-      folder: "test",
-      timestamp: Math.round(Date.now() / 1000),
-    };
-
-    const signature = cloudinary.utils.api_sign_request(
-      testParams,
-      CLOUDINARY_API_SECRET
-    );
-
-    // Simple upload test
-    const result = await cloudinary.uploader.upload(
-      "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCI+PC9zdmc+",
-      { folder: "test" }
-    );
-
-    res.json({
-      success: true,
-      result,
-      signatureTest: {
-        params: testParams,
-        signature: signature.substring(0, 10) + "...",
-        secretLength: CLOUDINARY_API_SECRET.length,
-      },
-    });
-  } catch (err) {
-    res.json({
-      success: false,
-      error: err.message,
-      details: err,
-      apiSecretInfo: {
-        exists: !!CLOUDINARY_API_SECRET,
-        length: CLOUDINARY_API_SECRET?.length || 0,
-        firstChars: CLOUDINARY_API_SECRET?.substring(0, 4) || "N/A",
-      },
-    });
-  }
-});
 
 // ---------------- TEST ROUTE ----------------
 router.get("/test", async (req, res) => {
@@ -240,11 +85,7 @@ router.get("/test", async (req, res) => {
       totalProducts: count,
       sample,
       env: {
-        cloudinary: !!(
-          process.env.CLOUDINARY_CLOUD_NAME &&
-          process.env.CLOUDINARY_API_KEY &&
-          process.env.CLOUDINARY_API_SECRET
-        ),
+        imagekit: !!process.env.IMAGEKIT_PUBLIC_KEY,
         jwt: !!process.env.JWT_SECRET,
         mongo: !!process.env.MONGO_URI,
       },
@@ -376,13 +217,15 @@ if (!cleanCategory) {
 
       // Upload multiple images to Cloudinary
       let galleryUrls = [];
+      let galleryIds = [];
       if (req.files && req.files.length > 0) {
         for (let file of req.files) {
-          const uploadResult = await uploadToCloudinary(
+          const uploadResult = await uploadToImageKit(
             file.buffer,
-            file.mimetype
+            file.originalname
           );
           galleryUrls.push(uploadResult.secure_url);
+          galleryIds.push(uploadResult.public_id);
         }
       }
 
@@ -401,7 +244,9 @@ if (!cleanCategory) {
         servings: servings ? JSON.parse(servings) : [],
         description: description?.trim() || "",
         gallery: galleryUrls,
+        galleryIds: galleryIds,
         image: galleryUrls[0] || "/images/placeholder.png", // fallback main image
+        imageId: galleryIds[0] || null,
       });
 
       await newProduct.save();
@@ -462,6 +307,7 @@ router.put(
       const { existingGallery, ...otherBodyData } = req.body;
       const updateData = { ...otherBodyData };
       let finalGallery = [];
+      let finalGalleryIds = [];
 
       // Parse JSON arrays
       if (updateData.flavor) updateData.flavor = JSON.parse(updateData.flavor);
@@ -469,30 +315,68 @@ router.put(
         updateData.servings = JSON.parse(updateData.servings);
 if (updateData.brandName) updateData.brandName = updateData.brandName.trim();
      
+      // Fetch current product to get old IDs
+      const productToUpdate = await Product.findById(req.params.id);
+      if (!productToUpdate) {
+        return res.status(404).json({ success: false, error: "Product not found" });
+      }
+
       if (existingGallery) {
-        finalGallery = Array.isArray(existingGallery)
+        const existingUrls = Array.isArray(existingGallery)
           ? existingGallery
           : [existingGallery];
+        
+        // Keep IDs for existing images
+        existingUrls.forEach(url => {
+          finalGallery.push(url);
+          const idx = productToUpdate.gallery.indexOf(url);
+          if (idx !== -1 && productToUpdate.galleryIds && productToUpdate.galleryIds[idx]) {
+            finalGalleryIds.push(productToUpdate.galleryIds[idx]);
+          } else {
+            // Keep structure aligned even if ID missing (legacy data)
+            finalGalleryIds.push(null); 
+          }
+        });
       }
 
       // 2. Upload new images and add them to the gallery
       if (req.files && req.files.length > 0) {
         for (let file of req.files) {
-          const uploadResult = await uploadToCloudinary(
+          const uploadResult = await uploadToImageKit(
             file.buffer,
-            file.mimetype
+            file.originalname
           );
           finalGallery.push(uploadResult.secure_url);
+          finalGalleryIds.push(uploadResult.public_id);
         }
       }
       updateData.gallery = finalGallery;
+      updateData.galleryIds = finalGalleryIds;
       updateData.image = finalGallery[0] || "/images/placeholder.png"; // Set the first image as the main one
+      updateData.imageId = finalGalleryIds[0] || null;
 
       if (updateData.price) updateData.price = Number(updateData.price);
       if (updateData.category)
         updateData.category = updateData.category.toLowerCase().trim();
       if (updateData.quantity)
         updateData.quantity = Number(updateData.quantity);
+
+      // 3. Delete removed images from Cloudinary
+      if (productToUpdate.galleryIds && productToUpdate.galleryIds.length > 0) {
+        // Find IDs that are in the old gallery but NOT in the new finalGalleryIds
+        const idsToDelete = productToUpdate.galleryIds.filter(
+          (id) => id && !finalGalleryIds.includes(id)
+        );
+
+        for (const id of idsToDelete) {
+          try {
+            await imagekit.deleteFile(id);
+            console.log("Deleted old image from ImageKit:", id);
+          } catch (err) {
+            console.error("Error deleting old image:", err);
+          }
+        }
+      }
 
       let updated = await Product.findByIdAndUpdate(req.params.id, updateData, {
         new: true,
@@ -540,18 +424,16 @@ router.delete("/:id", verifyAdmin, async (req, res) => {
       });
     }
 
-    // Delete image from Cloudinary
-    if (removed.image) {
-      try {
-        const publicId = removed.image
-          .split("/")
-          .slice(-2)
-          .join("/")
-          .split(".")[0];
-        await cloudinary.uploader.destroy(publicId);
-        console.log(" Image deleted from Cloudinary");
-      } catch (cloudErr) {
-        console.error(" Failed to delete image:", cloudErr);
+    // Delete all images from ImageKit using stored IDs
+    if (removed.galleryIds && removed.galleryIds.length > 0) {
+      for (const id of removed.galleryIds) {
+        if (!id) continue;
+        try {
+          await imagekit.deleteFile(id);
+          console.log("Deleted image from ImageKit:", id);
+        } catch (cloudErr) {
+          console.error("Failed to delete image:", cloudErr);
+        }
       }
     }
 
