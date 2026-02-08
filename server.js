@@ -85,7 +85,7 @@ app.get("/test", async (req, res) => {
 
 // Root route
 app.get("/", (req, res) => {
-  res.send("Welcome to Shark Nutrition API");
+  res.send("Welcome to Shark Nutrition API ");
 });
 // ADD this BEFORE the 404 handler:
 app.use((err, req, res, next) => {
