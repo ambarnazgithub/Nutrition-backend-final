@@ -94,6 +94,12 @@ export const updateCategory = async (req, res) => {
       return res.status(404).json({ success: false, message: "Category not found" });
     }
 
+   const safeSliderOrder = isFeatured
+  ? (sliderOrder !== undefined && sliderOrder !== ""
+      ? Number(sliderOrder)
+      : categoryToUpdate.sliderOrder)
+  : null;
+
     // 2. Handle File Upload (Delete old image if exists)
     if (req.file) {
       if (categoryToUpdate.imageId) {
@@ -110,11 +116,12 @@ export const updateCategory = async (req, res) => {
       imageId = uploadResult.public_id;
     }
 
-    const updateData = {
-      name,
-      isFeatured,
-      sliderOrder: isFeatured ? sliderOrder : null
-    };
+const updateData = {
+  name: name || categoryToUpdate.name,
+  isFeatured,
+  sliderOrder: safeSliderOrder
+};
+
     if (image) updateData.image = image;
     if (imageId) updateData.imageId = imageId;
 
