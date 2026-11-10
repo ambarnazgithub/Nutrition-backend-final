@@ -31,6 +31,8 @@ const allowedOrigins = [
     .map((url) => url.trim()),
   "http://localhost:5173",
   "http://localhost:5174",
+  "https://www.sharknutrition.pk",
+  "https://sharknutrition.pk"
 ];
 
 app.use(
